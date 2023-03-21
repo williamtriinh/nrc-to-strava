@@ -1,0 +1,18 @@
+#app-container {
+  width: 100%;
+  padding: 1;
+}
+
+Label {
+  width: 100%;
+  margin: 0 2 1 2;
+}
+
+#bearer-token-widget-button-container {
+  padding: 1;
+  layout: horizontal;
+}
+
+#bearer-token-widget-continue-button {
+  margin-right: 2;
+}
