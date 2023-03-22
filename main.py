@@ -1,10 +1,44 @@
 from textual.app import App, ComposeResult
-from textual.containers import Vertical
-from textual.message import Message, MessageTarget
-from textual.widgets import Button, Header, Input, Label, TextLog, Static
+from textual.reactive import reactive
+from textual.containers import Grid, Horizontal, Vertical
+from textual.message import Message
+from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView
 import requests
 
-class BearerTokenWidget(Static):
+PAGE_SIZE: int = 25
+
+class ErrorMessageLabel(Label):
+
+    error_message: reactive[str] = reactive("", layout=True)
+
+    def render(self) -> str:
+        return self.error_message
+
+class NikeActivityItem(ListItem):
+
+    def __init__(self, activity: any) -> None:
+        self.activity = activity
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        yield Label("Jun 8, 2023, 07:16PM")
+        yield Label("Avg. Distance: ")
+
+class NikeActivitiesList(ListView):
+
+    activities: reactive[list: any] = reactive([])
+    pages: reactive[list: str] = reactive(["*"])
+
+    # Remove existing items from the list and new items associated to the
+    # new activities
+    async def watch_activities(self, new_activities: any) -> None:
+        self.clear()
+        for activity in new_activities:
+            self.append(NikeActivityItem(activity))
+
+class BearerTokenWidget(Vertical):
+
+    # Custom message for when the bearer token is updated
     class TokenUpdated(Message):
         def __init__(self, bearer_token: str) -> None:
             self.bearer_token = bearer_token
@@ -22,12 +56,17 @@ class BearerTokenWidget(Static):
             input.action_delete_left_all()
             input.focus()
 
+    def on_mount(self) -> None:
+        # Focus the bearer token input when mounted
+        input = self.query_one(Input)
+        input.focus()
+
     def compose(self) -> ComposeResult:
         yield Input(
             placeholder="Bearer ...",
             id="bearer-token-input",
         )
-        with Static(id="bearer-token-widget-button-container"):
+        with Horizontal(id="bearer-token-widget-button-container"):
             yield Button(
                 label="Continue",
                 id="bearer-token-widget-continue-button",
@@ -46,26 +85,35 @@ class NrcToStravaApp(App):
     # Constructs UI and widgets
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Footer()
         with Vertical(id="app-container"):
             yield Label("Sign into Nike from your web browser, and using the developer tools, retrieve the access token from the request header (\"Authentication\") of any api.nike.com request.")
             yield BearerTokenWidget()
-            yield TextLog()
+            yield ErrorMessageLabel()
+            yield NikeActivitiesList()
 
     def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
-        response = requests.get(
-            "https://api.nike.com/plus/v3/activities/before_id/v3/*",
-            params={
-                "limit": "10",
-                "types": "run,jogging",
-                "include_deleted": "false",
-            },
-            headers={
-                "Authorization": message.bearer_token,
-            }
-        )
-
-        text_log = self.query_one(TextLog)
-        text_log.write(response.text)
+        error_message_label = self.query_one(ErrorMessageLabel)
+        error_message_label.error_message = ""
+        
+        try:
+            response = requests.get(
+                "https://api.nike.com/plus/v3/activities/before_id/v3/*",
+                params={
+                    "limit": str(PAGE_SIZE),
+                    "types": "run,jogging",
+                    "include_deleted": "false",
+                },
+                headers={
+                    "Authorization": message.bearer_token,
+                }
+            )
+            response.raise_for_status()
+            json = response.json()
+            nike_activities_list = self.query_one(NikeActivitiesList)
+            nike_activities_list.activities = json["activities"]
+        except Exception as error:
+            error_message_label.error_message = str(error)
 
 if __name__ == "__main__":
     app = NrcToStravaApp()
