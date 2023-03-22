@@ -4,6 +4,8 @@ from textual.containers import Grid, Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView
 import requests
+from datetime import datetime
+import math
 
 PAGE_SIZE: int = 25
 
@@ -17,12 +19,25 @@ class ErrorMessageLabel(Label):
 class NikeActivityItem(ListItem):
 
     def __init__(self, activity: any) -> None:
-        self.activity = activity
+        self.activity: any = activity
+
+        self.date: datetime = datetime.fromtimestamp(activity["start_epoch_ms"] / 1000)
+        self.distance: float = 0.0
+        self.pace: float = 0.0
+        self.duration_ms: int = activity["active_duration_ms"]
+
+        for summary in activity["summaries"]:
+            if summary["metric"] == "distance":
+                self.distance = math.floor(summary["value"] * 100) / 100
+            elif summary["metric"] == "pace":
+                self.pace = math.floor(summary["value"] * 100) / 100
+
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Label("Jun 8, 2023, 07:16PM")
-        yield Label("Avg. Distance: ")
+        yield Label(self.date.strftime("%x - %X"))
+        yield Label("{:6.2f} KM".format(self.distance))
+        yield Label("{:5.2f} MIN/KM".format(self.pace))
 
 class NikeActivitiesList(ListView):
 
@@ -95,7 +110,7 @@ class NrcToStravaApp(App):
     def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
         error_message_label = self.query_one(ErrorMessageLabel)
         error_message_label.error_message = ""
-        
+
         try:
             response = requests.get(
                 "https://api.nike.com/plus/v3/activities/before_id/v3/*",

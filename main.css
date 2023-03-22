@@ -21,6 +21,7 @@ NikeActivityItem > Label {
   width: auto;
   height: 100%;
   content-align-vertical: middle;
+  padding: 0 2;
 }
 
 NikeActivitiesList {
