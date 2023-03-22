@@ -18,14 +18,16 @@ class ErrorMessageLabel(Label):
 
 class NikeActivityItem(ListItem):
 
-    def __init__(self, activity: any) -> None:
+    def __init__(self, activity: any, index: int) -> None:
         self.activity: any = activity
+        self.index: int = index
 
         self.date: datetime = datetime.fromtimestamp(activity["start_epoch_ms"] / 1000)
         self.distance: float = 0.0
         self.pace: float = 0.0
         self.duration_ms: int = activity["active_duration_ms"]
 
+        # Parse activity summary data
         for summary in activity["summaries"]:
             if summary["metric"] == "distance":
                 self.distance = math.floor(summary["value"] * 100) / 100
@@ -35,21 +37,33 @@ class NikeActivityItem(ListItem):
         super().__init__()
 
     def compose(self) -> ComposeResult:
+        yield Label("{:3.0f}".format(self.index + 1))
         yield Label(self.date.strftime("%x - %X"))
         yield Label("{:6.2f} KM".format(self.distance))
         yield Label("{:5.2f} MIN/KM".format(self.pace))
+        yield Label(self._duration_formatted_time())
+
+    def _duration_formatted_time(self) -> str:
+        seconds = math.floor((self.duration_ms / 1000) % 60)
+        minutes = math.floor((self.duration_ms / 60000) % 60)
+        hours = math.floor(self.duration_ms / 3600000)
+        return "{:3.0f}:{:02.0f}:{:02.0f}".format(hours, minutes, seconds)
 
 class NikeActivitiesList(ListView):
 
     activities: reactive[list: any] = reactive([])
+    current_page: int = reactive(0)
     pages: reactive[list: str] = reactive(["*"])
 
     # Remove existing items from the list and new items associated to the
     # new activities
     async def watch_activities(self, new_activities: any) -> None:
         self.clear()
-        for activity in new_activities:
-            self.append(NikeActivityItem(activity))
+        for index, activity in enumerate(new_activities):
+            self.append(NikeActivityItem(
+                activity,
+                index + self.current_page * PAGE_SIZE
+            ))
 
 class BearerTokenWidget(Vertical):
 

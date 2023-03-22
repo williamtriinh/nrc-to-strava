@@ -26,7 +26,6 @@ NikeActivityItem > Label {
 
 NikeActivitiesList {
   height: 20;
-  background: red;
 }
 
 BearerTokenWidget {
