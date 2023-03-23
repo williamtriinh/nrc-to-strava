@@ -1,15 +1,18 @@
 import math
 
 from textual.app import App, ComposeResult
-from textual.reactive import reactive
+from textual.reactive import reactive, var
 from textual.containers import Grid, Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView
+from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ListItem, ListView, TextLog
 from datetime import datetime
 
 from nike import NikeApi
+from gpx_exporter import GpxExporter
 
 from constants import PAGE_SIZE
+
+gpx_exporter = GpxExporter()
 
 class ErrorMessageLabel(Label):
 
@@ -22,9 +25,20 @@ class ErrorMessageLabel(Label):
 
 class NikeActivityItem(ListItem):
 
-    def __init__(self, activity: any, index: int) -> None:
+    class AddedToExport(Message):
+        def __init__(self, activity: any):
+            self.activity = activity
+            super().__init__()
+
+    class RemovedFromExport(Message):
+        def __init__(self, activity_id: str):
+            self.activity_id = activity_id
+            super().__init__()
+
+    def __init__(self, activity: any, index: int, is_exported: bool = False) -> None:
         self.activity: any = activity
         self.index: int = index
+        self.is_exported: bool = is_exported
 
         self.date: datetime = datetime.fromtimestamp(activity["start_epoch_ms"] / 1000)
         self.distance: float = 0.0
@@ -46,6 +60,13 @@ class NikeActivityItem(ListItem):
         yield Label("{:6.2f} KM".format(self.distance))
         yield Label("{:5.2f} MIN/KM".format(self.pace))
         yield Label(self._duration_formatted_time())
+        yield Checkbox("Export", value = self.is_exported)
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.value:
+            self.post_message(self.AddedToExport(self.activity))
+        else:
+            self.post_message(self.RemovedFromExport(self.activity["id"]))
 
     def _duration_formatted_time(self) -> str:
         seconds = math.floor((self.duration_ms / 1000) % 60)
@@ -66,7 +87,8 @@ class NikeActivitiesList(ListView):
         for index, activity in enumerate(new_activities):
             self.append(NikeActivityItem(
                 activity,
-                index + self.current_page * PAGE_SIZE
+                index + self.current_page * PAGE_SIZE,
+                is_exported = gpx_exporter.does_activity_exist(activity["id"])
             ))
 
 class NikeActivitiesListPageButtons(Horizontal):
@@ -198,6 +220,12 @@ class NrcToStravaApp(App):
         except Exception as error:
             error_message_label.error_message = str(error)
             error_message_label.remove_class("hidden")
+
+    def on_nike_activity_item_added_to_export(self, message: NikeActivityItem.AddedToExport) -> None:
+        gpx_exporter.activities_to_export[message.activity["id"]] = message.activity
+
+    def on_nike_activity_item_removed_from_export(self, message: NikeActivityItem.RemovedFromExport) -> None:
+        gpx_exporter.activities_to_export.pop(message.activity_id)
 
 
 if __name__ == "__main__":

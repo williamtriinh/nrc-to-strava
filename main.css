@@ -29,6 +29,12 @@ NikeActivityItem > Label {
   padding: 0 2;
 }
 
+NikeActivityItem > Checkbox {
+  height: 100%;
+  content-align-vertical: middle;
+  padding: 0 2;
+}
+
 NikeActivitiesList {
   height: 20;
   margin: 1 2 1 2;
