@@ -1,14 +1,19 @@
 #app-container {
   width: 100%;
   height: 100%;
-  padding: 1;
+  padding: 1 2 2 2;
   overflow-y: hidden;
 }
 
 #app-container > Label {
   width: 100%;
   height: auto;
-  margin: 0 2 1 2;
+  margin: 0 0 1 0;
+  /* margin: 0 2 1 2; */
+}
+
+.hidden {
+  display: none;
 }
 
 NikeActivityItem {
@@ -26,6 +31,11 @@ NikeActivityItem > Label {
 
 NikeActivitiesList {
   height: 20;
+  margin: 1 2 1 2;
+}
+
+#prev-button {
+  margin-right: 2;
 }
 
 BearerTokenWidget {
@@ -35,12 +45,12 @@ BearerTokenWidget {
 
 BearerTokenWidget > Input {
   width: 100%;
+  margin-bottom: 1;
 }
 
 BearerTokenWidget > Horizontal {
   width: auto;
   height: 3;
-  margin: 1;
 }
 
 #bearer-token-widget-continue-button {

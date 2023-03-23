@@ -1,15 +1,19 @@
+import math
+
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
 from textual.containers import Grid, Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView
-import requests
 from datetime import datetime
-import math
 
-PAGE_SIZE: int = 25
+from nike import NikeApi
+
+from constants import PAGE_SIZE
 
 class ErrorMessageLabel(Label):
+
+    DEFAULT_CLASSES = "hidden"
 
     error_message: reactive[str] = reactive("", layout=True)
 
@@ -37,7 +41,7 @@ class NikeActivityItem(ListItem):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Label("{:3.0f}".format(self.index + 1))
+        yield Label("{:3.0f}.".format(self.index + 1))
         yield Label(self.date.strftime("%x - %X"))
         yield Label("{:6.2f} KM".format(self.distance))
         yield Label("{:5.2f} MIN/KM".format(self.pace))
@@ -53,7 +57,7 @@ class NikeActivitiesList(ListView):
 
     activities: reactive[list: any] = reactive([])
     current_page: int = reactive(0)
-    pages: reactive[list: str] = reactive(["*"])
+    pages: reactive[list: str] = reactive([])
 
     # Remove existing items from the list and new items associated to the
     # new activities
@@ -64,6 +68,31 @@ class NikeActivitiesList(ListView):
                 activity,
                 index + self.current_page * PAGE_SIZE
             ))
+
+class NikeActivitiesListPageButtons(Horizontal):
+
+    class Paginated(Message):
+        def __init__(self, direction: int) -> None:
+            self.direction = direction
+            super().__init__()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+
+        if button_id == "prev-button":
+            self.post_message(self.Paginated(-1))
+        elif button_id == "next-button":
+            self.post_message(self.Paginated(1))
+
+    def compose(self) -> ComposeResult:
+        yield Button(
+            "Prev",
+            id="prev-button",
+        )
+        yield Button(
+            "Next",
+            id="next-button",
+        )
 
 class BearerTokenWidget(Vertical):
 
@@ -111,6 +140,10 @@ class NrcToStravaApp(App):
     CSS_PATH = "main.css"
     TITLE = "NRC to Strava"
 
+    def __init__(self):
+        self.nike_api: NikeApi = NikeApi()
+        super().__init__()
+
     # Constructs UI and widgets
     def compose(self) -> ComposeResult:
         yield Header()
@@ -120,29 +153,52 @@ class NrcToStravaApp(App):
             yield BearerTokenWidget()
             yield ErrorMessageLabel()
             yield NikeActivitiesList()
+            yield NikeActivitiesListPageButtons()
 
     def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
         error_message_label = self.query_one(ErrorMessageLabel)
         error_message_label.error_message = ""
+        error_message_label.add_class("hidden")
 
         try:
-            response = requests.get(
-                "https://api.nike.com/plus/v3/activities/before_id/v3/*",
-                params={
-                    "limit": str(PAGE_SIZE),
-                    "types": "run,jogging",
-                    "include_deleted": "false",
-                },
-                headers={
-                    "Authorization": message.bearer_token,
-                }
-            )
-            response.raise_for_status()
-            json = response.json()
+            self.nike_api.bearer_token = message.bearer_token
+            json = self.nike_api.fetch_activities()
+
             nike_activities_list = self.query_one(NikeActivitiesList)
             nike_activities_list.activities = json["activities"]
+            nike_activities_list.pages = ["*", json["paging"]["before_id"]]
+
         except Exception as error:
             error_message_label.error_message = str(error)
+            error_message_label.remove_class("hidden")
+
+    def on_nike_activities_list_page_buttons_paginated(self, message: NikeActivitiesListPageButtons.Paginated) -> None:
+        error_message_label = self.query_one(ErrorMessageLabel)
+        error_message_label.error_message = ""
+        error_message_label.add_class("hidden")
+
+        try:
+            nike_activities_list = self.query_one(NikeActivitiesList)
+
+            new_page: int = max(0, min(nike_activities_list.current_page + message.direction, len(nike_activities_list.pages) - 1))
+            if new_page == nike_activities_list.current_page:
+                return
+
+            before_id: str = nike_activities_list.pages[new_page]
+
+            json = self.nike_api.fetch_activities(before_id)
+
+            nike_activities_list.current_page = new_page
+            nike_activities_list.activities = json["activities"]
+
+            # Add the next page to our list of pages if we're on the last page
+            if new_page == len(nike_activities_list.pages) - 1 and json["paging"] and json["paging"]["before_id"]:
+                nike_activities_list.pages = [*nike_activities_list.pages, json["paging"]["before_id"]]
+
+        except Exception as error:
+            error_message_label.error_message = str(error)
+            error_message_label.remove_class("hidden")
+
 
 if __name__ == "__main__":
     app = NrcToStravaApp()
