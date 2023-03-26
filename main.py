@@ -1,3 +1,4 @@
+import os
 import math
 
 from textual.app import App, ComposeResult
@@ -111,6 +112,14 @@ class NikeActivitiesListPageButtons(Horizontal):
             self.post_message(self.Paginated(1))
         elif button_id == "export-button":
             gpx_exporter.export_activities()
+        elif button_id == "delete-exports-button":
+            if not os.path.exists("./exports"):
+                os.mkdir("./exports")
+                return
+            
+            entries = os.listdir("./exports")
+            for entry in entries:
+                os.remove(f"./exports/{entry}")
 
     def compose(self) -> ComposeResult:
         yield Button(
@@ -124,6 +133,10 @@ class NikeActivitiesListPageButtons(Horizontal):
         yield Button(
             "Export Selected Activities",
             id="export-button",
+        )
+        yield Button(
+            "Delete All Exports",
+            id="delete-exports-button",
         )
 
 class BearerTokenWidget(Vertical):

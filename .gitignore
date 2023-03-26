@@ -132,3 +132,4 @@ dmypy.json
 .vscode/
 sample_data.json
 *.gpx
+exports/

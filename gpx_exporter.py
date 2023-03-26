@@ -32,12 +32,12 @@ class GpxExporter:
                 "xsi:schemaLocation": "http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd",
             })
 
-            metadata = self._metadata_sub_element(root, activity)
-            track = self._track_sub_element(root, activity, latitudes, longitudes)
+            self._metadata_sub_element(root, activity)
+            self._track_sub_element(root, activity, latitudes, longitudes)
 
             tree = ElementTree(root)
             ET.indent(tree)
-            tree.write(f"{activity['start_epoch_ms']}.gpx", xml_declaration=True, encoding="UTF-8")
+            tree.write(f"./exports/{activity['start_epoch_ms']}.gpx", xml_declaration=True, encoding="UTF-8")
 
     def _metadata_sub_element(self, parent: Element, activity: any) -> SubElement:
         metadata = SubElement(parent, "metadata")
