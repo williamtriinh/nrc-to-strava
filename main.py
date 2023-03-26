@@ -40,6 +40,7 @@ class NikeActivityItem(ListItem):
         self.index: int = index
         self.is_exported: bool = is_exported
 
+        self.activity_name: str = activity["tags"]["com.nike.name"]
         self.date: datetime = datetime.fromtimestamp(activity["start_epoch_ms"] / 1000)
         self.distance: float = 0.0
         self.pace: float = 0.0
@@ -57,6 +58,7 @@ class NikeActivityItem(ListItem):
     def compose(self) -> ComposeResult:
         yield Label("{:3.0f}.".format(self.index + 1))
         yield Label(self.date.strftime("%x - %X"))
+        yield Label("{:25.25}".format(self.activity_name))
         yield Label("{:6.2f} KM".format(self.distance))
         yield Label("{:5.2f} MIN/KM".format(self.pace))
         yield Label(self._duration_formatted_time())

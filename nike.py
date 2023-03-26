@@ -27,7 +27,7 @@ class NikeApi:
         response = requests.get(
             f"https://api.nike.com/plus/v3/activity/v3/{activity_id}",
             params={
-                "metrics": "cadence,latitude,longitude,ascent,heart_rate,speed,elevation,descent,calories,distance",
+                "metrics": "all",
             },
             headers={
                 "Authorization": NikeApi.bearer_token,

@@ -1,12 +1,13 @@
-import polyline
-
 from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from datetime import datetime
 
 from nike import NikeApi
+from helpers import find
 
 # GPX 1.1 schema documentation: https://www.topografix.com/GPX/1/1/
+
+ISO_8601 = "%Y-%m-%dT%H:%M:%SZ"
 
 class GpxExporter:
     
@@ -20,6 +21,9 @@ class GpxExporter:
         for activity_id in self.activities_to_export:
             activity = NikeApi.fetch_activity(activity_id)
 
+            latitudes = find(activity["metrics"], lambda metric : metric["type"]  == "latitude")["values"]
+            longitudes = find(activity["metrics"], lambda metric : metric["type"] == "longitude")["values"]
+
             root = Element("gpx", attrib={
                 "creator": "https://github.com/williamtriinh/nrc-to-strava",
                 "version": "1.1",
@@ -29,10 +33,7 @@ class GpxExporter:
             })
 
             metadata = self._metadata_sub_element(root, activity)
-
-            for metric in activity["metrics"]:
-                if metric["type"] == "distance":
-                    track = self._track_sub_element(root, activity, metric)
+            track = self._track_sub_element(root, activity, latitudes, longitudes)
 
             tree = ElementTree(root)
             ET.indent(tree)
@@ -41,28 +42,28 @@ class GpxExporter:
     def _metadata_sub_element(self, parent: Element, activity: any) -> SubElement:
         metadata = SubElement(parent, "metadata")
         SubElement(metadata, "name").text = activity["tags"]["com.nike.name"]
-        SubElement(metadata, "time").text = datetime.utcfromtimestamp(activity["start_epoch_ms"] / 1000).isoformat() + "Z"
+
+        timestamp = datetime.utcfromtimestamp(activity["start_epoch_ms"] / 1000)
+        SubElement(metadata, "time").text = timestamp.strftime(ISO_8601)
         return metadata
 
-    def _track_sub_element(self, parent: Element, activity: any, metric: any) -> SubElement:
+    def _track_sub_element(self, parent: Element, activity: any, latitudes: any, longitudes: any) -> SubElement:
         track = SubElement(parent, "trk")
         SubElement(track, "name").text = activity["tags"]["com.nike.name"]
         if ("note" in activity["tags"]):
             SubElement(track, "desc").text = activity["tags"]["note"]
 
-        for polyline_data in activity["polylines"]:
+        for index, latitude in enumerate(latitudes):
             track_segment = SubElement(track, "trkseg")
-            coordinates = polyline.decode(polyline_data["polyline"])
-            self._track_point_sub_element(track_segment, coordinates, metric)
+            self._track_point_sub_element(track_segment, latitude, longitudes[index])
 
         return track
     
-    def _track_point_sub_element(self, parent: Element, coordinates: list[tuple[float, float]], metric: any) -> SubElement:
-        for index, coordinate in enumerate(coordinates):
+    def _track_point_sub_element(self, parent: Element, latitude: any, longitude: any) -> SubElement:
             track_point = SubElement(parent, "trkpt", attrib={
-                "lat": str(coordinate[0]),
-                "lon": str(coordinate[1]),
+                "lat": str(latitude["value"]),
+                "lon": str(longitude["value"]),
             })
 
-            SubElement(track_point, "time").text = datetime.utcfromtimestamp(metric["values"][index]["start_epoch_ms"] / 1000).isoformat() + "Z"
-
+            timestamp = datetime.utcfromtimestamp(latitude["start_epoch_ms"] / 1000)
+            SubElement(track_point, "time").text = timestamp.strftime(ISO_8601)
