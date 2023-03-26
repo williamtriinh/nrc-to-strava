@@ -63,6 +63,7 @@ class NikeActivityItem(ListItem):
         yield Checkbox("Export", value = self.is_exported)
 
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        event.stop()
         if event.value:
             self.post_message(self.AddedToExport(self.activity))
         else:
@@ -99,12 +100,15 @@ class NikeActivitiesListPageButtons(Horizontal):
             super().__init__()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
         button_id = event.button.id
 
         if button_id == "prev-button":
             self.post_message(self.Paginated(-1))
         elif button_id == "next-button":
             self.post_message(self.Paginated(1))
+        elif button_id == "export-button":
+            gpx_exporter.export_activities()
 
     def compose(self) -> ComposeResult:
         yield Button(
@@ -114,6 +118,10 @@ class NikeActivitiesListPageButtons(Horizontal):
         yield Button(
             "Next",
             id="next-button",
+        )
+        yield Button(
+            "Export Selected Activities",
+            id="export-button",
         )
 
 class BearerTokenWidget(Vertical):
@@ -125,6 +133,8 @@ class BearerTokenWidget(Vertical):
             super().__init__()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+
         input = self.query_one("#bearer-token-input", Input)
         button_id = event.button.id
 
@@ -163,7 +173,6 @@ class NrcToStravaApp(App):
     TITLE = "NRC to Strava"
 
     def __init__(self):
-        self.nike_api: NikeApi = NikeApi()
         super().__init__()
 
     # Constructs UI and widgets
@@ -183,12 +192,12 @@ class NrcToStravaApp(App):
         error_message_label.add_class("hidden")
 
         try:
-            self.nike_api.bearer_token = message.bearer_token
-            json = self.nike_api.fetch_activities()
+            NikeApi.bearer_token = message.bearer_token
+            data = NikeApi.fetch_activities()
 
             nike_activities_list = self.query_one(NikeActivitiesList)
-            nike_activities_list.activities = json["activities"]
-            nike_activities_list.pages = ["*", json["paging"]["before_id"]]
+            nike_activities_list.activities = data["activities"]
+            nike_activities_list.pages = ["*", data["paging"]["before_id"]]
 
         except Exception as error:
             error_message_label.error_message = str(error)
@@ -208,24 +217,24 @@ class NrcToStravaApp(App):
 
             before_id: str = nike_activities_list.pages[new_page]
 
-            json = self.nike_api.fetch_activities(before_id)
+            data = NikeApi.fetch_activities(before_id)
 
             nike_activities_list.current_page = new_page
-            nike_activities_list.activities = json["activities"]
+            nike_activities_list.activities = data["activities"]
 
             # Add the next page to our list of pages if we're on the last page
-            if new_page == len(nike_activities_list.pages) - 1 and json["paging"] and json["paging"]["before_id"]:
-                nike_activities_list.pages = [*nike_activities_list.pages, json["paging"]["before_id"]]
+            if new_page == len(nike_activities_list.pages) - 1 and data["paging"] and data["paging"]["before_id"]:
+                nike_activities_list.pages = [*nike_activities_list.pages, data["paging"]["before_id"]]
 
         except Exception as error:
             error_message_label.error_message = str(error)
             error_message_label.remove_class("hidden")
 
     def on_nike_activity_item_added_to_export(self, message: NikeActivityItem.AddedToExport) -> None:
-        gpx_exporter.activities_to_export[message.activity["id"]] = message.activity
+        gpx_exporter.activities_to_export.add(message.activity["id"])
 
     def on_nike_activity_item_removed_from_export(self, message: NikeActivityItem.RemovedFromExport) -> None:
-        gpx_exporter.activities_to_export.pop(message.activity_id)
+        gpx_exporter.activities_to_export.remove(message.activity_id)
 
 
 if __name__ == "__main__":

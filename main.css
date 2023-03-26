@@ -40,7 +40,7 @@ NikeActivitiesList {
   margin: 1 2 1 2;
 }
 
-#prev-button {
+NikeActivitiesListPageButtons > Button {
   margin-right: 2;
 }
 

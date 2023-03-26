@@ -4,10 +4,10 @@ from constants import PAGE_SIZE
 
 class NikeApi:
     
-    def __init__(self):
-        self.bearer_token: str | None = None
+    bearer_token: str | None = None
 
-    def fetch_activities(self, before_id: str = "*") -> any:
+    @staticmethod
+    def fetch_activities(before_id: str = "*") -> any:
         response = requests.get(
             f"https://api.nike.com/plus/v3/activities/before_id/v3/{before_id}",
             params={
@@ -16,7 +16,21 @@ class NikeApi:
                 "include_deleted": "false",
             },
             headers={
-                "Authorization": self.bearer_token,
+                "Authorization": NikeApi.bearer_token,
+            }
+        )
+
+        return response.json()
+    
+    @staticmethod
+    def fetch_activity(activity_id: str) -> any:
+        response = requests.get(
+            f"https://api.nike.com/plus/v3/activity/v3/{activity_id}",
+            params={
+                "metrics": "cadence,latitude,longitude,ascent,heart_rate,speed,elevation,descent,calories,distance",
+            },
+            headers={
+                "Authorization": NikeApi.bearer_token,
             }
         )
 

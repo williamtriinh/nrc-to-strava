@@ -130,3 +130,5 @@ dmypy.json
 
 .DS_Store
 .vscode/
+sample_data.json
+*.gpx
