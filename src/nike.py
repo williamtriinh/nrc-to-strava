@@ -1,6 +1,6 @@
 import requests
 
-from constants import PAGE_SIZE
+from .constants import PAGE_SIZE
 
 class NikeApi:
     
