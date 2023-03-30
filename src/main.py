@@ -13,17 +13,22 @@ class NrcToStravaApp(App):
 
     def __init__(self):
         self.gpx_exporter = GpxExporter()
+
+        self.nike_activities_list: NikeActivitiesList
+
         super().__init__()
 
     # Constructs UI and widgets
     def compose(self) -> ComposeResult:
+        self.nike_activities_list = NikeActivitiesList()
+
         yield Header()
         yield Footer()
         with Vertical(id="app-container"):
             yield Label("Sign into Nike from your web browser, and using the developer tools, retrieve the access token from the request header (\"Authentication\") of any api.nike.com request.")
             yield BearerTokenWidget()
             yield ErrorMessageLabel()
-            yield NikeActivitiesList()
+            yield self.nike_activities_list
             yield Controls()
 
     def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
@@ -71,8 +76,10 @@ class NrcToStravaApp(App):
             error_message_label.remove_class("hidden")
 
     def on_controls_exported_activities(self) -> None:
-        nike_activities_list = self.query_one(NikeActivitiesList)
-        self.gpx_exporter.export_activities(nike_activities_list.selected_activities)
+        self.gpx_exporter.export_activities(self.nike_activities_list.selected_activities)
+
+    def on_controls_unselected_all_activities(self) -> None:
+        self.nike_activities_list.selected_activities = set()
 
 if __name__ == "__main__":
     app = NrcToStravaApp()

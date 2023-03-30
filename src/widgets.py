@@ -79,8 +79,12 @@ class NikeActivitiesList(ListView):
 
     # Remove existing items from the list and new items associated to the
     # new activities
-    def watch_activities(self, new_activities: any) -> None:
+    def watch_activities(self, new_activities: list[any]) -> None:
         self._updated_activity_list_items(new_activities)
+
+    def watch_selected_activities(self, new_selected_activities: set[str]) -> None:
+        if len(new_selected_activities) == 0:
+            self._updated_activity_list_items(self.activities)
 
     def on_nike_activity_item_selected(self, message: NikeActivityItem.Selected) -> None:
         self.selected_activities = self.selected_activities.union({ message.activity_id })
@@ -104,8 +108,10 @@ class Controls(Horizontal):
             super().__init__()
 
     class ExportedActivities(Message):
-        def __init__(self) -> None:
-            super().__init__()
+        pass
+
+    class UnselectedAllActivities(Message):
+        pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
@@ -121,10 +127,12 @@ class Controls(Horizontal):
             if not os.path.exists("./exports"):
                 os.mkdir("./exports")
                 return
-            
+
             entries = os.listdir("./exports")
             for entry in entries:
                 os.remove(f"./exports/{entry}")
+        elif button_id == "unselect-all-button":
+            self.post_message(self.UnselectedAllActivities())
 
     def compose(self) -> ComposeResult:
         yield Button(
@@ -142,6 +150,10 @@ class Controls(Horizontal):
         yield Button(
             "Delete All Exports",
             id="delete-exports-button",
+        )
+        yield Button(
+            "Unselect All",
+            id="unselect-all-button",
         )
 
 class BearerTokenWidget(Vertical):
