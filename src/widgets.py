@@ -8,10 +8,10 @@ from textual.message import Message
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ListItem, ListView, TextLog
 from datetime import datetime
 
-from .nike import NikeApi
-from .gpx_exporter import GpxExporter
+from nike import NikeApi
+from gpx_exporter import GpxExporter
 
-from .constants import PAGE_SIZE
+from constants import PAGE_SIZE
 
 class ErrorMessageLabel(Label):
     DEFAULT_CLASSES = "hidden"

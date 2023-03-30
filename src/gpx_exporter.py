@@ -2,8 +2,8 @@ from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from datetime import datetime
 
-from .nike import NikeApi
-from .helpers import find
+from nike import NikeApi
+from helpers import find
 
 # GPX 1.1 schema documentation: https://www.topografix.com/GPX/1/1/
 

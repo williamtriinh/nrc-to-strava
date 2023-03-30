@@ -8,12 +8,10 @@ from textual.message import Message
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ListItem, ListView, TextLog
 from datetime import datetime
 
-from .nike import NikeApi
-from .gpx_exporter import GpxExporter
+from nike import NikeApi
+from gpx_exporter import GpxExporter
 
-from .widgets import BearerTokenWidget, ErrorMessageLabel, NikeActivityItem, NikeActivitiesList, NikeActivitiesListPageButtons
-
-from .constants import PAGE_SIZE
+from widgets import BearerTokenWidget, ErrorMessageLabel, NikeActivityItem, NikeActivitiesList, NikeActivitiesListPageButtons
 
 gpx_exporter = GpxExporter()
 
