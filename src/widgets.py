@@ -1,15 +1,12 @@
 import os
 import math
 
-from textual.app import App, ComposeResult
-from textual.reactive import reactive, var
-from textual.containers import Grid, Horizontal, Vertical
+from textual.app import ComposeResult
+from textual.reactive import reactive
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ListItem, ListView, TextLog
+from textual.widgets import Button, Checkbox, Input, Label, ListItem, ListView
 from datetime import datetime
-
-from nike import NikeApi
-from gpx_exporter import GpxExporter
 
 from constants import PAGE_SIZE
 
@@ -22,12 +19,12 @@ class ErrorMessageLabel(Label):
         return self.error_message
 
 class NikeActivityItem(ListItem):
-    class AddedToExport(Message):
-        def __init__(self, activity: any):
-            self.activity = activity
+    class Selected(Message):
+        def __init__(self, activity_id: any):
+            self.activity_id = activity_id
             super().__init__()
 
-    class RemovedFromExport(Message):
+    class Unselected(Message):
         def __init__(self, activity_id: str):
             self.activity_id = activity_id
             super().__init__()
@@ -64,9 +61,9 @@ class NikeActivityItem(ListItem):
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
         event.stop()
         if event.value:
-            self.post_message(self.AddedToExport(self.activity))
+            self.post_message(self.Selected(self.activity["id"]))
         else:
-            self.post_message(self.RemovedFromExport(self.activity["id"]))
+            self.post_message(self.Unselected(self.activity["id"]))
 
     def _duration_formatted_time(self) -> str:
         seconds = math.floor((self.duration_ms / 1000) % 60)
@@ -76,24 +73,38 @@ class NikeActivityItem(ListItem):
 
 class NikeActivitiesList(ListView):
     activities: reactive[list: any] = reactive([])
+    selected_activities: reactive[set[str]] = reactive(set())
     current_page: int = reactive(0)
     pages: reactive[list: str] = reactive([])
 
     # Remove existing items from the list and new items associated to the
     # new activities
-    async def watch_activities(self, new_activities: any) -> None:
+    def watch_activities(self, new_activities: any) -> None:
+        self._updated_activity_list_items(new_activities)
+
+    def on_nike_activity_item_selected(self, message: NikeActivityItem.Selected) -> None:
+        self.selected_activities = self.selected_activities.union({ message.activity_id })
+
+    def on_nike_activity_item_unselected(self, message: NikeActivityItem.Unselected) -> None:
+        self.selected_activities = self.selected_activities.difference({ message.activity_id })
+
+    def _updated_activity_list_items(self, activities: any) -> None:
         self.clear()
-        for index, activity in enumerate(new_activities):
+        for index, activity in enumerate(activities):
             self.append(NikeActivityItem(
                 activity,
                 index + self.current_page * PAGE_SIZE,
-                is_exported = gpx_exporter.does_activity_exist(activity["id"])
+                activity["id"] in self.selected_activities
             ))
 
-class NikeActivitiesListPageButtons(Horizontal):
+class Controls(Horizontal):
     class Paginated(Message):
         def __init__(self, direction: int) -> None:
             self.direction = direction
+            super().__init__()
+
+    class ExportedActivities(Message):
+        def __init__(self) -> None:
             super().__init__()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -105,7 +116,7 @@ class NikeActivitiesListPageButtons(Horizontal):
         elif button_id == "next-button":
             self.post_message(self.Paginated(1))
         elif button_id == "export-button":
-            gpx_exporter.export_activities()
+            self.post_message(self.ExportedActivities())
         elif button_id == "delete-exports-button":
             if not os.path.exists("./exports"):
                 os.mkdir("./exports")

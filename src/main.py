@@ -1,25 +1,18 @@
-import os
-import math
-
 from textual.app import App, ComposeResult
-from textual.reactive import reactive, var
-from textual.containers import Grid, Horizontal, Vertical
-from textual.message import Message
-from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ListItem, ListView, TextLog
-from datetime import datetime
+from textual.containers import Vertical
+from textual.widgets import Footer, Header, Label
 
 from nike import NikeApi
 from gpx_exporter import GpxExporter
 
-from widgets import BearerTokenWidget, ErrorMessageLabel, NikeActivityItem, NikeActivitiesList, NikeActivitiesListPageButtons
-
-gpx_exporter = GpxExporter()
+from widgets import BearerTokenWidget, Controls, ErrorMessageLabel, NikeActivityItem, NikeActivitiesList
 
 class NrcToStravaApp(App):
     CSS_PATH = "main.css" # Load the css file when the app starts
     TITLE = "NRC to Strava"
 
     def __init__(self):
+        self.gpx_exporter = GpxExporter()
         super().__init__()
 
     # Constructs UI and widgets
@@ -31,7 +24,7 @@ class NrcToStravaApp(App):
             yield BearerTokenWidget()
             yield ErrorMessageLabel()
             yield NikeActivitiesList()
-            yield NikeActivitiesListPageButtons()
+            yield Controls()
 
     def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
         error_message_label = self.query_one(ErrorMessageLabel)
@@ -50,7 +43,7 @@ class NrcToStravaApp(App):
             error_message_label.error_message = str(error)
             error_message_label.remove_class("hidden")
 
-    def on_nike_activities_list_page_buttons_paginated(self, message: NikeActivitiesListPageButtons.Paginated) -> None:
+    def on_controls_paginated(self, message: Controls.Paginated) -> None:
         error_message_label = self.query_one(ErrorMessageLabel)
         error_message_label.error_message = ""
         error_message_label.add_class("hidden")
@@ -77,11 +70,9 @@ class NrcToStravaApp(App):
             error_message_label.error_message = str(error)
             error_message_label.remove_class("hidden")
 
-    def on_nike_activity_item_added_to_export(self, message: NikeActivityItem.AddedToExport) -> None:
-        gpx_exporter.activities_to_export.add(message.activity["id"])
-
-    def on_nike_activity_item_removed_from_export(self, message: NikeActivityItem.RemovedFromExport) -> None:
-        gpx_exporter.activities_to_export.remove(message.activity_id)
+    def on_controls_exported_activities(self) -> None:
+        nike_activities_list = self.query_one(NikeActivitiesList)
+        self.gpx_exporter.export_activities(nike_activities_list.selected_activities)
 
 if __name__ == "__main__":
     app = NrcToStravaApp()
