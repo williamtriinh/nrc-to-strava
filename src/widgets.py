@@ -1,22 +1,16 @@
 import os
 import math
 
-from textual.app import App, ComposeResult
-from textual.reactive import reactive, var
-from textual.containers import Grid, Horizontal, Vertical
+from textual.app import ComposeResult
+from textual.reactive import reactive
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, ListItem, ListView, TextLog
+from textual.widgets import Button, Checkbox, Input, Label, ListItem, ListView
 from datetime import datetime
-
-from nike import NikeApi
-from gpx_exporter import GpxExporter
 
 from constants import PAGE_SIZE
 
-gpx_exporter = GpxExporter()
-
 class ErrorMessageLabel(Label):
-
     DEFAULT_CLASSES = "hidden"
 
     error_message: reactive[str] = reactive("", layout=True)
@@ -25,13 +19,12 @@ class ErrorMessageLabel(Label):
         return self.error_message
 
 class NikeActivityItem(ListItem):
-
-    class AddedToExport(Message):
-        def __init__(self, activity: any):
-            self.activity = activity
+    class Selected(Message):
+        def __init__(self, activity_id: any):
+            self.activity_id = activity_id
             super().__init__()
 
-    class RemovedFromExport(Message):
+    class Unselected(Message):
         def __init__(self, activity_id: str):
             self.activity_id = activity_id
             super().__init__()
@@ -68,9 +61,9 @@ class NikeActivityItem(ListItem):
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
         event.stop()
         if event.value:
-            self.post_message(self.AddedToExport(self.activity))
+            self.post_message(self.Selected(self.activity["id"]))
         else:
-            self.post_message(self.RemovedFromExport(self.activity["id"]))
+            self.post_message(self.Unselected(self.activity["id"]))
 
     def _duration_formatted_time(self) -> str:
         seconds = math.floor((self.duration_ms / 1000) % 60)
@@ -79,28 +72,46 @@ class NikeActivityItem(ListItem):
         return "{:3.0f}:{:02.0f}:{:02.0f}".format(hours, minutes, seconds)
 
 class NikeActivitiesList(ListView):
-
     activities: reactive[list: any] = reactive([])
+    selected_activities: reactive[set[str]] = reactive(set())
     current_page: int = reactive(0)
     pages: reactive[list: str] = reactive([])
 
     # Remove existing items from the list and new items associated to the
     # new activities
-    async def watch_activities(self, new_activities: any) -> None:
+    def watch_activities(self, new_activities: list[any]) -> None:
+        self._updated_activity_list_items(new_activities)
+
+    def watch_selected_activities(self, new_selected_activities: set[str]) -> None:
+        if len(new_selected_activities) == 0:
+            self._updated_activity_list_items(self.activities)
+
+    def on_nike_activity_item_selected(self, message: NikeActivityItem.Selected) -> None:
+        self.selected_activities = self.selected_activities.union({ message.activity_id })
+
+    def on_nike_activity_item_unselected(self, message: NikeActivityItem.Unselected) -> None:
+        self.selected_activities = self.selected_activities.difference({ message.activity_id })
+
+    def _updated_activity_list_items(self, activities: any) -> None:
         self.clear()
-        for index, activity in enumerate(new_activities):
+        for index, activity in enumerate(activities):
             self.append(NikeActivityItem(
                 activity,
                 index + self.current_page * PAGE_SIZE,
-                is_exported = gpx_exporter.does_activity_exist(activity["id"])
+                activity["id"] in self.selected_activities
             ))
 
-class NikeActivitiesListPageButtons(Horizontal):
-
+class Controls(Horizontal):
     class Paginated(Message):
         def __init__(self, direction: int) -> None:
             self.direction = direction
             super().__init__()
+
+    class ExportedActivities(Message):
+        pass
+
+    class UnselectedAllActivities(Message):
+        pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
@@ -111,15 +122,17 @@ class NikeActivitiesListPageButtons(Horizontal):
         elif button_id == "next-button":
             self.post_message(self.Paginated(1))
         elif button_id == "export-button":
-            gpx_exporter.export_activities()
+            self.post_message(self.ExportedActivities())
         elif button_id == "delete-exports-button":
             if not os.path.exists("./exports"):
                 os.mkdir("./exports")
                 return
-            
+
             entries = os.listdir("./exports")
             for entry in entries:
                 os.remove(f"./exports/{entry}")
+        elif button_id == "unselect-all-button":
+            self.post_message(self.UnselectedAllActivities())
 
     def compose(self) -> ComposeResult:
         yield Button(
@@ -138,9 +151,12 @@ class NikeActivitiesListPageButtons(Horizontal):
             "Delete All Exports",
             id="delete-exports-button",
         )
+        yield Button(
+            "Unselect All",
+            id="unselect-all-button",
+        )
 
 class BearerTokenWidget(Vertical):
-
     # Custom message for when the bearer token is updated
     class TokenUpdated(Message):
         def __init__(self, bearer_token: str) -> None:
@@ -180,78 +196,3 @@ class BearerTokenWidget(Vertical):
                 label="Clear",
                 id="bearer-token-widget-clear-button",
             )
-
-class NrcToStravaApp(App):
-
-    # Load the css file when the app starts
-    CSS_PATH = "main.css"
-    TITLE = "NRC to Strava"
-
-    def __init__(self):
-        super().__init__()
-
-    # Constructs UI and widgets
-    def compose(self) -> ComposeResult:
-        yield Header()
-        yield Footer()
-        with Vertical(id="app-container"):
-            yield Label("Sign into Nike from your web browser, and using the developer tools, retrieve the access token from the request header (\"Authentication\") of any api.nike.com request.")
-            yield BearerTokenWidget()
-            yield ErrorMessageLabel()
-            yield NikeActivitiesList()
-            yield NikeActivitiesListPageButtons()
-
-    def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
-        error_message_label = self.query_one(ErrorMessageLabel)
-        error_message_label.error_message = ""
-        error_message_label.add_class("hidden")
-
-        try:
-            NikeApi.bearer_token = message.bearer_token
-            data = NikeApi.fetch_activities()
-
-            nike_activities_list = self.query_one(NikeActivitiesList)
-            nike_activities_list.activities = data["activities"]
-            nike_activities_list.pages = ["*", data["paging"]["before_id"]]
-
-        except Exception as error:
-            error_message_label.error_message = str(error)
-            error_message_label.remove_class("hidden")
-
-    def on_nike_activities_list_page_buttons_paginated(self, message: NikeActivitiesListPageButtons.Paginated) -> None:
-        error_message_label = self.query_one(ErrorMessageLabel)
-        error_message_label.error_message = ""
-        error_message_label.add_class("hidden")
-
-        try:
-            nike_activities_list = self.query_one(NikeActivitiesList)
-
-            new_page: int = max(0, min(nike_activities_list.current_page + message.direction, len(nike_activities_list.pages) - 1))
-            if new_page == nike_activities_list.current_page:
-                return
-
-            before_id: str = nike_activities_list.pages[new_page]
-
-            data = NikeApi.fetch_activities(before_id)
-
-            nike_activities_list.current_page = new_page
-            nike_activities_list.activities = data["activities"]
-
-            # Add the next page to our list of pages if we're on the last page
-            if new_page == len(nike_activities_list.pages) - 1 and data["paging"] and data["paging"]["before_id"]:
-                nike_activities_list.pages = [*nike_activities_list.pages, data["paging"]["before_id"]]
-
-        except Exception as error:
-            error_message_label.error_message = str(error)
-            error_message_label.remove_class("hidden")
-
-    def on_nike_activity_item_added_to_export(self, message: NikeActivityItem.AddedToExport) -> None:
-        gpx_exporter.activities_to_export.add(message.activity["id"])
-
-    def on_nike_activity_item_removed_from_export(self, message: NikeActivityItem.RemovedFromExport) -> None:
-        gpx_exporter.activities_to_export.remove(message.activity_id)
-
-
-if __name__ == "__main__":
-    app = NrcToStravaApp()
-    app.run()

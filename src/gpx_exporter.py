@@ -10,15 +10,8 @@ from helpers import find
 ISO_8601 = "%Y-%m-%dT%H:%M:%SZ"
 
 class GpxExporter:
-    
-    def __init__(self) -> None:
-        self.activities_to_export: set[str] = set()
-
-    def does_activity_exist(self, activity_id: str) -> bool:
-        return activity_id in self.activities_to_export
-    
-    def export_activities(self) -> None:
-        for activity_id in self.activities_to_export:
+    def export_activities(self, activity_ids) -> None:
+        for activity_id in activity_ids:
             activity = NikeApi.fetch_activity(activity_id)
 
             latitudes = find(activity["metrics"], lambda metric : metric["type"]  == "latitude")["values"]
