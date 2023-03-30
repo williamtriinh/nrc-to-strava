@@ -77,6 +77,7 @@ class NrcToStravaApp(App):
 
     def on_controls_exported_activities(self) -> None:
         self.gpx_exporter.export_activities(self.nike_activities_list.selected_activities)
+        self.nike_activities_list.selected_activities = set()
 
     def on_controls_unselected_all_activities(self) -> None:
         self.nike_activities_list.selected_activities = set()
