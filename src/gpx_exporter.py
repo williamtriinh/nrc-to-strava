@@ -1,4 +1,3 @@
-import math
 from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from datetime import datetime
