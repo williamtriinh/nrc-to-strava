@@ -41,11 +41,13 @@ class GpxExporter:
 
         timestamp = datetime.utcfromtimestamp(activity["start_epoch_ms"] / 1000)
         SubElement(metadata, "time").text = timestamp.strftime(ISO_8601)
+
         return metadata
 
     def _track_sub_element(self, parent: Element, activity: any, data: dict[str, any]) -> SubElement:
         track = SubElement(parent, "trk")
         SubElement(track, "name").text = activity["tags"]["com.nike.name"]
+        SubElement(track, "cmt").text = f"Nike activity ID: {activity['id']}"
 
         track_segment = SubElement(track, "trkseg")
 
@@ -56,7 +58,6 @@ class GpxExporter:
                 # There's a chance that elevation data might be missing.
                 "elevation": data["elevation"][min(index, len(data["elevation"]) - 1)],
             }
-
             self._track_point_sub_element(track_segment, point_data)
 
         return track
