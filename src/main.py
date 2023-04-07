@@ -1,11 +1,11 @@
 from textual.app import App, ComposeResult
 from textual.containers import Vertical
-from textual.widgets import Footer, Header, Label
+from textual.widgets import Footer, Header, Label, TextLog
 
 from nike import NikeApi
 from gpx_exporter import GpxExporter
 
-from widgets import BearerTokenWidget, Controls, ErrorMessageLabel, NikeActivityItem, NikeActivitiesList
+from widgets import BearerTokenWidget, Controls, ErrorMessageLabel, NikeActivitiesList
 
 class NrcToStravaApp(App):
     CSS_PATH = "main.css" # Load the css file when the app starts
@@ -15,27 +15,25 @@ class NrcToStravaApp(App):
         self.gpx_exporter = GpxExporter()
 
         self.nike_activities_list: NikeActivitiesList
+        self.error_log: TextLog
 
         super().__init__()
 
     # Constructs UI and widgets
     def compose(self) -> ComposeResult:
         self.nike_activities_list = NikeActivitiesList()
+        self.error_log = TextLog()
 
         yield Header()
         yield Footer()
         with Vertical(id="app-container"):
             yield Label("Sign into Nike from your web browser, and using the developer tools, retrieve the access token from the request header (\"Authentication\") of any api.nike.com request.")
             yield BearerTokenWidget()
-            yield ErrorMessageLabel()
             yield self.nike_activities_list
             yield Controls()
+            yield self.error_log
 
     def on_bearer_token_widget_token_updated(self, message: BearerTokenWidget.TokenUpdated) -> None:
-        error_message_label = self.query_one(ErrorMessageLabel)
-        error_message_label.error_message = ""
-        error_message_label.add_class("hidden")
-
         try:
             NikeApi.bearer_token = message.bearer_token
             data = NikeApi.fetch_activities()
@@ -45,14 +43,9 @@ class NrcToStravaApp(App):
             nike_activities_list.pages = ["*", data["paging"]["before_id"]]
 
         except Exception as error:
-            error_message_label.error_message = str(error)
-            error_message_label.remove_class("hidden")
+            self.error_log.write(error)
 
     def on_controls_paginated(self, message: Controls.Paginated) -> None:
-        error_message_label = self.query_one(ErrorMessageLabel)
-        error_message_label.error_message = ""
-        error_message_label.add_class("hidden")
-
         try:
             nike_activities_list = self.query_one(NikeActivitiesList)
 
@@ -72,8 +65,7 @@ class NrcToStravaApp(App):
                 nike_activities_list.pages = [*nike_activities_list.pages, data["paging"]["before_id"]]
 
         except Exception as error:
-            error_message_label.error_message = str(error)
-            error_message_label.remove_class("hidden")
+            self.error_log.write(error)
 
     def on_controls_exported_activities(self) -> None:
         self.gpx_exporter.export_activities(self.nike_activities_list.selected_activities)

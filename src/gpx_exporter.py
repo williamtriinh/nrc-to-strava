@@ -14,8 +14,11 @@ class GpxExporter:
         for activity_id in activity_ids:
             activity = NikeApi.fetch_activity(activity_id)
 
-            latitudes = find(activity["metrics"], lambda metric : metric["type"]  == "latitude")["values"]
-            longitudes = find(activity["metrics"], lambda metric : metric["type"] == "longitude")["values"]
+            data: dict[str, any] = {
+                "latitude": find(activity["metrics"], lambda metric : metric["type"]  == "latitude")["values"],
+                "longitude": find(activity["metrics"], lambda metric : metric["type"] == "longitude")["values"],
+                "elevation": find(activity["metrics"], lambda metric : metric["type"] == "elevation")["values"],
+            }
 
             root = Element("gpx", attrib={
                 "creator": "https://github.com/williamtriinh/nrc-to-strava",
@@ -26,7 +29,7 @@ class GpxExporter:
             })
 
             self._metadata_sub_element(root, activity)
-            self._track_sub_element(root, activity, latitudes, longitudes)
+            self._track_sub_element(root, activity, data)
 
             tree = ElementTree(root)
             ET.indent(tree)
@@ -34,29 +37,37 @@ class GpxExporter:
 
     def _metadata_sub_element(self, parent: Element, activity: any) -> SubElement:
         metadata = SubElement(parent, "metadata")
-        SubElement(metadata, "name").text = activity["tags"]["com.nike.name"]
 
         timestamp = datetime.utcfromtimestamp(activity["start_epoch_ms"] / 1000)
         SubElement(metadata, "time").text = timestamp.strftime(ISO_8601)
+
         return metadata
 
-    def _track_sub_element(self, parent: Element, activity: any, latitudes: any, longitudes: any) -> SubElement:
+    def _track_sub_element(self, parent: Element, activity: any, data: dict[str, any]) -> SubElement:
         track = SubElement(parent, "trk")
-        SubElement(track, "name").text = activity["tags"]["com.nike.name"]
-        if ("note" in activity["tags"]):
-            SubElement(track, "desc").text = activity["tags"]["note"]
+        SubElement(track, "name").text = activity["tags"].get("com.nike.name", "No name")
+        SubElement(track, "cmt").text = f"Nike activity ID: {activity['id']}"
 
-        for index, latitude in enumerate(latitudes):
-            track_segment = SubElement(track, "trkseg")
-            self._track_point_sub_element(track_segment, latitude, longitudes[index])
+        track_segment = SubElement(track, "trkseg")
+
+        for index, latitude in enumerate(data["latitude"]):
+            point_data: dict[str, any] = {
+                "latitude": latitude,
+                "longitude": data["longitude"][index],
+                # There's a chance that elevation data might be missing.
+                "elevation": data["elevation"][min(index, len(data["elevation"]) - 1)],
+            }
+            self._track_point_sub_element(track_segment, point_data)
 
         return track
     
-    def _track_point_sub_element(self, parent: Element, latitude: any, longitude: any) -> SubElement:
+    def _track_point_sub_element(self, parent: Element, data: dict[str, any]) -> SubElement:
             track_point = SubElement(parent, "trkpt", attrib={
-                "lat": str(latitude["value"]),
-                "lon": str(longitude["value"]),
+                "lat": str(data["latitude"]["value"]),
+                "lon": str(data["longitude"]["value"]),
             })
 
-            timestamp = datetime.utcfromtimestamp(latitude["start_epoch_ms"] / 1000)
+            SubElement(track_point, "ele").text = str(data["elevation"]["value"])
+
+            timestamp = datetime.utcfromtimestamp(data["latitude"]["start_epoch_ms"] / 1000)
             SubElement(track_point, "time").text = timestamp.strftime(ISO_8601)
