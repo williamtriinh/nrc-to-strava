@@ -45,7 +45,7 @@ class GpxExporter:
 
     def _track_sub_element(self, parent: Element, activity: any, data: dict[str, any]) -> SubElement:
         track = SubElement(parent, "trk")
-        SubElement(track, "name").text = activity["tags"]["com.nike.name"]
+        SubElement(track, "name").text = activity["tags"].get("com.nike.name", "No name")
         SubElement(track, "cmt").text = f"Nike activity ID: {activity['id']}"
 
         track_segment = SubElement(track, "trkseg")

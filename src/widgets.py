@@ -34,7 +34,7 @@ class NikeActivityItem(ListItem):
         self.index: int = index
         self.is_exported: bool = is_exported
 
-        self.activity_name: str = activity["tags"]["com.nike.name"]
+        self.activity_name: str = activity["tags"].get("com.nike.name", "No name")
         self.date: datetime = datetime.fromtimestamp(activity["start_epoch_ms"] / 1000)
         self.distance: float = 0.0
         self.pace: float = 0.0
