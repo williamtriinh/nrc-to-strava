@@ -11,5 +11,8 @@ A text-based user interface for exporting activities from the Nike Run Club app 
 ## Installation
 This project relies on the [Textual](https://textual.textualize.io/) framework, and it can be installed using PyPi: `pip install textual` or `pip install textual[dev]` ([click here](https://textual.textualize.io/getting_started/) to learn more).
 
+Other packages to install:
+- `requests`
+
 ## Running
 `$ python src/main.py`
