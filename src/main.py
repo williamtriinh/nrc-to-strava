@@ -46,10 +46,6 @@ class NrcToStravaApp(App):
             self.error_log.write(error)
 
     def on_controls_paginated(self, message: Controls.Paginated) -> None:
-        error_message_label = self.query_one(ErrorMessageLabel)
-        error_message_label.error_message = ""
-        error_message_label.add_class("hidden")
-
         try:
             nike_activities_list = self.query_one(NikeActivitiesList)
 
@@ -69,9 +65,7 @@ class NrcToStravaApp(App):
                 nike_activities_list.pages = [*nike_activities_list.pages, data["paging"]["before_id"]]
 
         except Exception as error:
-            error_message_label.error_message = str(error)
-            print(str(error))
-            error_message_label.remove_class("hidden")
+            self.error_log.write(error)
 
     def on_controls_exported_activities(self) -> None:
         self.gpx_exporter.export_activities(self.nike_activities_list.selected_activities)
