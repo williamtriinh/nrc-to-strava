@@ -2,12 +2,11 @@ from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 from datetime import datetime
 
+from constants import ISO_8601
 from nike import NikeApi
 from helpers import find
 
 # GPX 1.1 schema documentation: https://www.topografix.com/GPX/1/1/
-
-ISO_8601 = "%Y-%m-%dT%H:%M:%SZ"
 
 class GpxExporter:
     def export_activities(self, activity_ids) -> None:
