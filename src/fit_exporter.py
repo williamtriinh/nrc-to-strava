@@ -7,6 +7,7 @@ from fit_tool.profile.messages.lap_message import LapMessage
 from fit_tool.profile.messages.record_message import RecordMessage
 from fit_tool.profile.messages.session_message import SessionMessage
 from fit_tool.profile.profile_type import Event, EventType, FileType, Manufacturer, Sport
+
 from datetime import datetime
 from geopy.distance import geodesic
 import math
@@ -42,7 +43,7 @@ class FitExporter:
             message.manufacturer = Manufacturer.DEVELOPMENT.value
             message.product = 0
             message.time_created = activity["start_epoch_ms"]
-            message.type = FileType.ACTIVITY # https://developer.garmin.com/fit/file-types/course/
+            message.type = FileType.ACTIVITY # https://developer.garmin.com/fit/file-types/activity/
             builder.add(message)
 
             # Session message
@@ -61,7 +62,7 @@ class FitExporter:
                     message.timestamp = moment["timestamp"]
                     builder.add(message)
 
-            # Event message used to indicate the start of the course
+            # Event message used to indicate the start of the activity
             message = EventMessage()
             message.timestamp = activity["start_epoch_ms"]
             message.event = Event.TIMER
@@ -90,7 +91,7 @@ class FitExporter:
                 message.position_long = longitude["value"]
                 builder.add(message)
 
-            # Event message used to indicate the end of the course
+            # Event message used to indicate the end of the activity
             message = EventMessage()
             message.timestamp = activity["end_epoch_ms"]
             message.event = Event.TIMER
