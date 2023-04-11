@@ -3,7 +3,7 @@ from textual.containers import Vertical
 from textual.widgets import Footer, Header, Label, TextLog
 
 from nike import NikeApi
-from gpx_exporter import GpxExporter
+from fit_exporter import FitExporter
 
 from widgets import BearerTokenWidget, Controls, ErrorMessageLabel, NikeActivitiesList
 
@@ -12,7 +12,7 @@ class NrcToStravaApp(App):
     TITLE = "NRC to Strava"
 
     def __init__(self):
-        self.gpx_exporter = GpxExporter()
+        self.exporter = FitExporter()
 
         self.nike_activities_list: NikeActivitiesList
         self.error_log: TextLog
@@ -68,7 +68,7 @@ class NrcToStravaApp(App):
             self.error_log.write(error)
 
     def on_controls_exported_activities(self) -> None:
-        self.gpx_exporter.export_activities(self.nike_activities_list.selected_activities)
+        self.exporter.export_activities(self.nike_activities_list.selected_activities)
         self.nike_activities_list.selected_activities = set()
 
     def on_controls_unselected_all_activities(self) -> None:
